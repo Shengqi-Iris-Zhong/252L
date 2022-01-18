@@ -1,0 +1,332 @@
+---
+title: "Problem Set 1"
+author: "Iris Zhong"
+date: "1/13/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+```
+
+# Question 1 Exploration of collections of bernoulli variables
+
+```{r}
+set.seed(12311)
+x1 <- matrix(rbinom(1000,1,.5),100,10)
+```
+
+
+> Let's pretend that x1 is item response data from a test. So 1s and 0s are correct/incorrect responses (rows are people and columns are items).
+
+> For fun we can look at the correlations across items and the variation in row sums (ie, total scores)
+
+```{r}
+cor(x1)
+var(rowSums(x1))
+```
+
+
+## Q. If you considered the 1s/0s correct and incorrect responses to test items (where the rows are people and the columns are items), does this seem like it could have come from a realistic scenario? How might we know?
+
+
+
+> Feel free to ignore this chunk of code (skip ahead to below question). I'm going to generate a new set of data. 
+
+```{r}
+set.seed(12311)
+th<-matrix(rnorm(100),100,10,byrow=FALSE)
+diff<-matrix<-matrix(rnorm(10),100,10,byrow=TRUE)
+kern<- exp(th - diff)
+pr<-kern/(1+kern)
+test<-matrix(runif(1000),100,10)
+x2<-ifelse(pr>test,1,0)
+
+```
+
+
+```{r}
+cor(x2)
+var(rowSums(x2))
+```
+
+
+##Q. Now, let's ask the same question of the new matrix x2. Does it seem like realistic item response data? Specifically, how does it compare to the first matrix x1 in terms of whether it seems like a realistic set of item responses? What characteristics influence your opinion on this point?
+
+
+
+
+
+##Q. How would you characterize the key difference between x1 and x2 in terms of what we can observe if we blind ourselves to the data generating process?
+
+
+
+
+
+
+
+
+# Question 2 Logistic Regression
+
+```{r load Q2 data}
+load(here("data","ps1-logreg.Rdata"))
+```
+
+```{r model log reg}
+m1 <- glm(y1 ~ x,df, family = "binomial")
+m2 <- glm(y2 ~ x,df, family = "binomial")
+```
+
+```{r}
+summary(m1)
+summary(m2)
+```
+
+
+## (A) How would you compare the association between y1 or y2 & x? 
+
+```{r}
+ggplot(df, aes(x = x, y = y1)) + 
+  geom_point(alpha=.5) +
+  geom_jitter(height = 0.1) +
+  stat_smooth(method="glm", se=FALSE, method.args = list(family=binomial))
+```
+
+
+```{r}
+ggplot(df, aes(x = x, y = y2)) + 
+  geom_point(alpha=.5) +
+  geom_jitter(height = 0.1) +
+  stat_smooth(method="glm", se=FALSE, method.args = list(family=binomial))
+```
+
+## (B) How would you interpret the regression coefficients from (say) m1? 
+
+For m1: odds ratio = $e^{\hat{\beta_1}}$ = `r exp(0.99636)`
+
+When x increases by 1 unit, the odds of y is 2.71 times as large as before. 
+
+
+## (C) Do m1 and m2 show equivalent model fit? Can you notice anything peculiar about either y1 or y2 (in terms of their association with x)? [Note: This one is sneaky. I’d encourage you to avoid fit statistics and look at techniques for model diagnostics (e.g., residuals).]
+
+
+From the plots, I'd predict that m2 has a better fit. In m1, it looks like there are more instances where the data points with same x values have different y values. 
+
+Check confusion matrix:
+
+```{r}
+m1.prob = predict(m1, df[1], type="response")
+m1.prob[m1.prob > .5] <- 1
+m1.prob[m1.prob <= .5] <- 0
+table(m1.prob, df$y1)
+```
+
+```{r}
+m2.prob = predict(m2, df[1], type="response")
+m2.prob[m2.prob > .5] <- 1
+m2.prob[m2.prob <= .5] <- 0
+table(m2.prob, df$y2)
+```
+
+From the confusion matrix, m2 has a higher predicted accuracy. In particular, m1 has substantially more cases when it predicts 0 but the actual value is 1. 
+
+
+
+# Q3 Likelihood exploration
+
+> Suppose we just observed x, a bunch of random numbers.
+
+```{r}
+x <- rnorm(50)
+```
+
+
+> We first want to see what the distribution looks like. We can do this:
+
+```{r}
+hist(x)
+```
+
+
+> Looks vaguely normalish, no? [Of course, you can see that I'm drawing variates from the normal distribution, so this isn't surprising. Pretend you didn't see that part!]
+
+> So what if we wanted to estimate the mean and var of the normal distribution that may have generated this set of draws.
+  How do we do this? The key statistical technique is to consider the likelihood.
+  Let's start by writing a function that computes the likelihood for "x" in a normal with unknown mean and var (collectively, "pars").
+  
+```{r}
+likelihood <- function(pars,x) { #see the first eqn here, http://mathworld.wolfram.com/NormalDistribution.html
+  # pars[1] = mu, pars[2] = sigma 
+  # prob of x in a normal dist that has a mean of mu and sd of sigma
+    tmp <- exp(-(x-pars[1])^2/(2*pars[2]))
+    tmp / sqrt(2*pars[2]*pi)
+}
+
+```
+  
+
+> To completely evaluate this function, we would need to know x and pars. We only know x (this is the problem of estimation in general: the values in pars are not known to us!).
+
+> With known x, we can think of the likelihood as the "probability" of observing the draws x from a normal distribution with parameters pars.
+
+> That is, we are thinking of the likelihood as a function of pars (x is known).
+
+> Let's think about what we get if the mean is unknown and the SD = 1
+
+```{r}
+out<-list()
+character_m = list()
+for (m in seq(-1,1,length.out=100)) {
+    like<-rep(NA,length(x)) # empty list
+    for (i in 1:length(x)) { # for each x:
+        like[i]<-likelihood(c(m,1),x[i]) # likelihood of x_i when mean = m and sd = 1
+    }
+    character_m <- append(character_m, as.character(m))
+    c(c(m,prod(like)))->out[[as.character(m)]] # likelihood of x when mean = m and sd = 1
+}
+plot(do.call("rbind",out),type="b") #this is a likelihood surface where we're seeing the likelihood as a function of the unknown mean
+```
+
+## Q. what do you notice? 
+
+The likelihood of x is the highest when it is under a normal distribution with a mean of approximately 0 (which is our true mean).
+
+
+
+> From a computational perspective, working with the products of small numbers is very unstable. So we instead work with the sum of the logs.
+
+> Why is this ok? First of all, log(xy)=log(x) + log(y). Second, log(f(x)) is a monotic transformation of f(x). So if we maximize log(f(x)) funtion, then we've also maximized f(x)
+##Below is a function that will do this.
+
+```{r}
+ll<-function(pars,x) {
+    likelihood<-function(pars,x) {
+        tmp<-exp(-(x-pars[1])^2/(2*pars[2]))
+        tmp/sqrt(2*pars[2]*pi)
+    }
+    like<-rep(NA,length(x))
+    for (i in 1:length(x)) {
+        like[i]<-likelihood(pars,x[i])
+    }
+    -1*sum(log(like))
+}
+optim(par=c(-2,2),ll,x=x)$par #these are the mean and variance estimates produced by maximum likelihood.
+```
+
+
+
+#Q. How do our estimates vary in accuracy as a function of the sample size (change 100 to something much bigger and much smaller in the call to "rnorm" at the top)? What does this connect to in your understanding of estimation theory (think standard error)?
+
+When the sample size gets larger, the estimates are more accurate. 
+
+
+
+# Q4 Item Quality
+
+```{r}
+emp_rasch <- read.delim(here("data","emp-rasch.txt"), sep = " ", header = F)
+rasch <- read.delim(here("data","rasch.txt"), sep = " ", header = F)
+```
+
+```{r}
+# from in class code
+item_analysis<-function(resp) { #'resp' is just a generic item response matrix, rows are people, columns are items
+    pv<-colMeans(resp,na.rm=TRUE) #simple "p-values", which in psychometrics tends to just mean the mean number of points for an item
+    r.xt<-numeric() #initializing a vector
+    rowSums(resp,na.rm=TRUE)->ss #these are the sum scores/observed scores
+    for (i in 1:ncol(resp)) {
+        cor(ss,resp[,i],use='p')->r.xt[i] #this is the correlations between the i-th item (resp[,i]) and the total score (ss)
+    }
+    cbind(pv,r.xt) #returning a matrix consisting of the p-values and the item/total correlations
+}
+```
+
+```{r}
+emp_rasch_item_analysis <- item_analysis(emp_rasch)
+rasch_item_analysis <- item_analysis(rasch)
+```
+
+
+```{r}
+par(mfrow=c(1,2))
+hist(emp_rasch_item_analysis[,1], main = "empirical rasch p value")
+hist(rasch_item_analysis[,1], main = "rasch p value")
+```
+
+
+
+
+```{r}
+par(mfrow=c(1,2))
+plot(density(emp_rasch_item_analysis[,2]), main = "empirical rasch item-total corr")
+plot(density(rasch_item_analysis[,2]), main = "rasch item-total corr")
+```
+
+
+
+# Bonus Question
+
+
+```{r parameters}
+d <- 5 # distance
+l <- 1 # length of needle
+simulate_n <- 1000 # simulate how many times?
+sample_n <- 50 # sample size in each simulation? 
+```
+
+```{r intersect function}
+intersect_function <- function(x) {
+  
+  if (min(x1, x2) <= x & max(x1, x2) >= x) {return(1)}
+  else {return(0)}
+  
+}
+```
+
+
+```{r simulation}
+
+result_dist <- c()
+set.seed(252)
+
+for (i in 1:simulate_n) {
+  result_sample <- c() # list of 0 and 1 for each j
+  for (j in 1:sample_n){
+    result_temp <- c()
+  
+    # create coordinates for the needle ends
+  
+    x1 <- runif(1, -100, 100) # a random number from -100 to 100
+    y1 <- runif(1, -100, 100) 
+    theta <- runif(1, 0, pi) # a random angle
+    x2 <- x1 + l * cos(theta) # find the other coordinate
+    y2 <- y1 + l * sin(theta)
+  
+    # create parallel lines
+    initial_line <- runif(1, -120, -110)
+    line_list <- seq(from = initial_line, to = -initial_line, by = d) # create list of parallel lines
+  
+    # check intersection
+    intersect_yes <- sapply(line_list, intersect_function) # for each line, does it intersect with the needle?
+    if (sum(intersect_yes) != 0) {
+      result_temp <- append(result_temp, 1)
+    } 
+  
+    else {result_temp <- append(result_temp, 0)} # whether j intersects
+    
+    result_sample <- append(result_sample,result_temp)
+  
+  }
+result_dist <- append(result_dist,mean(result_sample)) 
+  
+}
+
+hist(result_dist)
+abline(v = mean(result_dist),col = "coral", lwd = 2)
+
+mosaic::favstats(result_dist)
+
+```
+
