@@ -31,6 +31,8 @@ var(rowSums(x1))
 
 ## Q. If you considered the 1s/0s correct and incorrect responses to test items (where the rows are people and the columns are items), does this seem like it could have come from a realistic scenario? How might we know?
 
+No. The correlations between the items are very weak (very close to 0). From the data generating process, it's clear that 1s and 0s are generated randomly, both with 50% of probability. In a realistic scenario, the numbers should not be random, and items should have stronger correlations, as people doing well in one item should somewhat indicate that they could do well in other items too. 
+
 
 
 > Feel free to ignore this chunk of code (skip ahead to below question). I'm going to generate a new set of data. 
@@ -53,15 +55,15 @@ var(rowSums(x2))
 ```
 
 
-##Q. Now, let's ask the same question of the new matrix x2. Does it seem like realistic item response data? Specifically, how does it compare to the first matrix x1 in terms of whether it seems like a realistic set of item responses? What characteristics influence your opinion on this point?
+## Q. Now, let's ask the same question of the new matrix x2. Does it seem like realistic item response data? Specifically, how does it compare to the first matrix x1 in terms of whether it seems like a realistic set of item responses? What characteristics influence your opinion on this point?
 
 
+Since the correlations are substantially higher, it looks more like a realistic item response dataset. 
 
 
+## Q. How would you characterize the key difference between x1 and x2 in terms of what we can observe if we blind ourselves to the data generating process?
 
-##Q. How would you characterize the key difference between x1 and x2 in terms of what we can observe if we blind ourselves to the data generating process?
-
-
+The size of correlation coefficients.
 
 
 
@@ -101,6 +103,11 @@ ggplot(df, aes(x = x, y = y2)) +
   geom_jitter(height = 0.1) +
   stat_smooth(method="glm", se=FALSE, method.args = list(family=binomial))
 ```
+
+The intercept in model 1 is smaller than that in model 2, so a prediction of y = 0 is more prevalent in model 1. 
+
+The curve of the regression line is flatter in model 1 and steeper in model 2, which is also evident from the slope estimates in the models. 
+
 
 ## (B) How would you interpret the regression coefficients from (say) m1? 
 
@@ -217,9 +224,9 @@ optim(par=c(-2,2),ll,x=x)$par #these are the mean and variance estimates produce
 
 
 
-#Q. How do our estimates vary in accuracy as a function of the sample size (change 100 to something much bigger and much smaller in the call to "rnorm" at the top)? What does this connect to in your understanding of estimation theory (think standard error)?
+## Q. How do our estimates vary in accuracy as a function of the sample size (change 100 to something much bigger and much smaller in the call to "rnorm" at the top)? What does this connect to in your understanding of estimation theory (think standard error)?
 
-When the sample size gets larger, the estimates are more accurate. 
+When the sample size gets larger, the estimates are more accurate. Since $s=\frac{\sigma}{\sqrt{n}}$, when the sample size increases, standard error should decrease, and we are more certain about our estimates. 
 
 
 
@@ -255,7 +262,9 @@ hist(emp_rasch_item_analysis[,1], main = "empirical rasch p value")
 hist(rasch_item_analysis[,1], main = "rasch p value")
 ```
 
+The empirical rasch data has most items with a p-value of approximately 0.5. It looks less normal than the rasch data, with more items that are on the difficult end (high p-value). Its p-value ranges from about 0.2 to 1.0. 
 
+The rasch data has a more normal distribution and centers at around 0.5. It also has a wider range of p-value from 0 to 1. 
 
 
 ```{r}
@@ -263,6 +272,10 @@ par(mfrow=c(1,2))
 plot(density(emp_rasch_item_analysis[,2]), main = "empirical rasch item-total corr")
 plot(density(rasch_item_analysis[,2]), main = "rasch item-total corr")
 ```
+
+Item-total correlation in the empirical rasch dataset has a nice bell-shaped distribution, ranging from about 0.1 to 0.7. Since no item-total correlation is close to 0, the items are acceptable. 
+
+Item-total correlation distribution of the rasch dataset has a smaller range from 0.2 to 0.55. There is also a small bump at about 0.25. Similarly, because no item-total correlation is close to 0, the items are acceptable. 
 
 
 
