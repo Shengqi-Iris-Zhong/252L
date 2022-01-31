@@ -20,7 +20,8 @@ hist(rowsums(x1))
 ######################################################################################
 ##2
 ##this one was pretty sneaky on my part. ;)
-load("ps1-logreg.Rdata")
+library(here)
+load(here("data","ps1-logreg.Rdata"))
 glm(y1~x,df,family="binomial")->m1
 glm(y2~x,df,family="binomial")->m2
 par(mfrow=c(1,2))
